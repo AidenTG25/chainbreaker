@@ -1,0 +1,24 @@
+# Kafka Broker
+bootstrap_servers: "localhost:9092"
+security_protocol: "PLAINTEXT"
+
+# Topics
+topic: "network-flows"
+alerts_topic: "security-alerts"
+
+# Consumer
+consumer_group: "chainbreaker-consumers"
+auto_offset_reset: "latest"
+enable_auto_commit: true
+auto_commit_interval_ms: 5000
+max_poll_records: 500
+session_timeout_ms: 30000
+
+# Producer (for agent actions - major phase)
+producer_acks: "all"
+producer_retries: 3
+
+# Fallback CSV (when Kafka unavailable)
+csv_fallback_path: "data/raw/cicapt_iiot_2024.csv"
+csv_batch_size: 1000
+csv_mode: "batch"  # "live" or "batch"

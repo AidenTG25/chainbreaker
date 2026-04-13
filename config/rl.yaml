@@ -1,0 +1,71 @@
+# PPO Hyperparameters (Stable-Baselines3 MaskablePPO)
+ppo:
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  learning_rate: 0.0003
+  lr_schedule: "linear"
+
+# Environment
+environment:
+  max_steps_per_episode: 500
+  max_graph_hosts: 100
+  obs_normalization: true
+  reward_scaling: 1.0
+
+# Action Space (8 actions, one per kill chain stage response)
+actions:
+  block_ip: 0
+  isolate_host: 1
+  kill_process: 2
+  reset_connection: 3
+  block_port: 4
+  quarantine_subnet: 5
+  notify_admin: 6
+  collect_forensics: 7
+
+# Stage Action Mapping (which actions are valid per stage)
+stage_action_mask:
+  Initial_Access: [0, 3, 4, 6]           # block_ip, reset_connection, block_port, notify_admin
+  Persistence: [1, 2, 6]                 # isolate_host, kill_process, notify_admin
+  Command_and_Control: [0, 3, 4, 5]       # block_ip, reset_connection, block_port, quarantine_subnet
+  Discovery: [0, 4, 6]                   # block_ip, block_port, notify_admin
+  Credential_Access: [1, 2, 6, 7]        # isolate_host, kill_process, notify_admin, collect_forensics
+  Lateral_Movement: [0, 1, 3, 5]         # block_ip, isolate_host, reset_connection, quarantine_subnet
+  Defense_Evasion: [1, 2, 5, 7]          # isolate_host, kill_process, quarantine_subnet, collect_forensics
+  Exfiltration: [0, 3, 5, 7]             # block_ip, reset_connection, quarantine_subnet, collect_forensics
+
+# Multi-Objective Reward Weights
+reward:
+  early_interruption_weight: 10.0        # reward for stopping attack early
+  blast_radius_weight: -5.0              # penalty per compromised host
+  dwell_time_weight: -1.0                # penalty per second dwell time
+  containment_success_weight: 5.0       # reward for successful stage containment
+  containment_failure_penalty: -10.0     # penalty for failed containment
+  false_positive_penalty: -2.0           # penalty for unnecessary action
+  action_cost_weight: -0.1               # small penalty per action taken
+  stage_progress_penalty: -8.0           # penalty per stage progression
+
+# Training
+training:
+  total_timesteps: 500000
+  save_freq: 10000
+  eval_freq: 5000
+  n_eval_episodes: 10
+  warmup_timesteps: 10000
+  save_path: "models/rl_agent.zip"
+  tensorboard_log: "logs/tensorboard/"
+
+# Baseline (Rule-Based)
+baseline:
+  threshold_block_ip: 3                  # block IP after N alerts per host
+  threshold_isolate: 5                   # isolate after N alerts
+  quarantine_on_lateral: true
+  block_on_exfiltration: true

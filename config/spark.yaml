@@ -1,0 +1,29 @@
+# Spark Master
+master: "local[*]"
+app_name: "ChainBreaker-Temporal"
+
+# Aggregation Windows
+temporal_windows:
+  spray_detection_window: "5 minutes"
+  coordinated_attack_window: "10 minutes"
+  feature_refresh_interval: "1 minute"
+
+# Spark Config
+spark:
+  driver_memory: "2g"
+  executor_memory: "2g"
+  shuffle_partitions: 8
+  default_parallelism: 8
+
+# Spray Detection Thresholds
+spray_detection:
+  unique_targets_threshold: 5      # unique destination IPs in window
+  unique_users_threshold: 3        # unique source users in window
+  failed_auth_threshold: 10       # failed attempts in window
+  time_window_seconds: 300
+
+# Coordinated Attack Detection
+coordinated:
+  min_source_count: 3             # minimum source IPs
+  min_target_count: 2             # minimum target IPs
+  port_scan_threshold: 20         # unique ports in window

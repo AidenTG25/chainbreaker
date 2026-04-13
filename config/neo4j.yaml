@@ -1,0 +1,15 @@
+# Neo4j Connection
+uri: "bolt://localhost:7687"
+user: "neo4j"
+password: "chainbreaker"
+database: "neo4j"
+max_connection_lifetime: 3600
+max_connection_pool_size: 50
+connection_acquisition_timeout: 60
+
+# Schema
+auto_create_constraints: true
+auto_create_indexes: true
+
+# Query timeouts
+default_query_timeout: 30

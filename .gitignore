@@ -1,0 +1,79 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+ENV/
+env/
+
+# --- Node ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.next/
+out/
+dist/
+
+# --- Environment ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# --- Data Engineering ---
+# Ignore raw datasets but keep specific CSVs if needed (per user: ignore data/raw/ specifically)
+data/raw/
+# Kafka logs and data folders
+kafka-logs/
+zookeeper-data/
+*.log
+
+# --- Machine Learning ---
+# Ignore large model files and checkpoints
+models/*.joblib
+models/*.pth
+models/*.pkl
+models/*.h5
+models/checkpoints/
+
+# --- OS/IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Project Specific ---
+logs/
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
