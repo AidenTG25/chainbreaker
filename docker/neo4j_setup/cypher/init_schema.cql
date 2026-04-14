@@ -138,3 +138,85 @@ CREATE INDEX caused_timestamp_idx FOR ()-[r:CAUSED]-() ON (r.timestamp);
 
 // AFFECTED_BY: Alert affected by AgentAction
 // Properties: timestamp (datetime), action_id (string)
+
+// ============================
+// FLOW-CENTRIC GRAPH SCHEMA
+// ============================
+
+// --- Node Constraints ---
+
+DROP CONSTRAINT flow_id IF EXISTS;
+DROP CONSTRAINT protocol_name IF EXISTS;
+DROP CONSTRAINT attack_key IF EXISTS;
+
+CREATE CONSTRAINT flow_id FOR (f:Flow) REQUIRE f.flow_id IS UNIQUE;
+CREATE CONSTRAINT protocol_name FOR (p:Protocol) REQUIRE p.name IS UNIQUE;
+CREATE CONSTRAINT attack_key FOR (a:Attack) REQUIRE a.attack_key IS UNIQUE;
+
+// --- Node Indexes ---
+
+CREATE INDEX flow_ts_idx FOR (f:Flow) ON (f.ts);
+CREATE INDEX flow_label_idx FOR (f:Flow) ON (f.label);
+CREATE INDEX flow_src_ip_idx FOR (f:Flow) ON (f.src_ip);
+CREATE INDEX flow_dst_ip_idx FOR (f:Flow) ON (f.dst_ip);
+CREATE INDEX flow_protocol_idx FOR (f:Flow) ON (f.protocol);
+CREATE INDEX flow_sublabel_idx FOR (f:Flow) ON (f.sublabel);
+CREATE INDEX flow_predicted_label_idx FOR (f:Flow) ON (f.predicted_label);
+
+CREATE INDEX attack_label_idx FOR (a:Attack) ON (a.label);
+CREATE INDEX attack_sublabel_idx FOR (a:Attack) ON (a.subLabel);
+
+// --- Relationship Indexes ---
+
+CREATE INDEX initiated_ts_idx FOR ()-[r:INITIATED]-() ON (r.ts);
+CREATE INDEX targets_ts_idx FOR ()-[r:TARGETS]-() ON (r.ts);
+CREATE INDEX uses_protocol_idx FOR ()-[r:USES_PROTOCOL]-() ON (r.ts);
+CREATE INDEX has_attack_type_idx FOR ()-[r:HAS_ATTACK_TYPE]-() ON (r.ts);
+CREATE INDEX predicted_as_idx FOR ()-[r:PREDICTED_AS]-() ON (r.ts);
+
+// ============================
+// FLOW-CENTRIC NODE DEFINITIONS (documentation)
+// ============================
+
+// Flow: Individual network flow event (MOST IMPORTANT NODE)
+// Properties: flow_id (string, unique), ts (string), src_ip (string),
+//            dst_ip (string), src_port (int), dst_port (int),
+//            flow_duration (float), protocol (string),
+//            total_size (float), total_bytes (float),
+//            rate (float), srate (float), drate (float),
+//            syn_flag_count (int), ack_flag_count (int),
+//            fin_flag_count (int), rst_flag_count (int),
+//            psh_flag_count (int), urg_flag_count (int),
+//            ece_flag_count (int), cwr_flag_count (int),
+//            header_length (float), iat (float),
+//            magnitude (float), radius (float),
+//            covariance (float), variance (float), weight (float),
+//            label (string), sublabel (string), sublabel_cat (string),
+//            predicted_label (string, ML), confidence_score (float, ML)
+
+// Protocol: Network protocol type
+// Properties: name (string, unique — TCP, UDP, HTTP, DNS, etc.)
+
+// Attack: Attack classification from dataset labels
+// Properties: attack_key (string, unique — "{label}::{subLabel}"),
+//            label (string), subLabel (string), subLabelCat (string)
+
+// ============================
+// FLOW-CENTRIC EDGE DEFINITIONS (documentation)
+// ============================
+
+// INITIATED: Host started this flow
+//   (Host)-[:INITIATED]->(Flow)
+
+// TARGETS: Flow directed at this host
+//   (Flow)-[:TARGETS]->(Host)
+
+// USES_PROTOCOL: Flow uses this protocol
+//   (Flow)-[:USES_PROTOCOL]->(Protocol)
+
+// HAS_ATTACK_TYPE: Flow classified as this attack
+//   (Flow)-[:HAS_ATTACK_TYPE]->(Attack)
+
+// PREDICTED_AS: ML model predicted flow as this attack (future)
+//   (Flow)-[:PREDICTED_AS]->(Attack)
+//   Properties: model (string), confidence (float), ts (string)

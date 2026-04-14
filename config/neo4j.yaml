@@ -13,3 +13,7 @@ auto_create_indexes: true
 
 # Query timeouts
 default_query_timeout: 30
+
+# Flow ingestion
+flow_batch_size: 100
+flow_ingest_timeout: 30

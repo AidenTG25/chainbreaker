@@ -1,36 +1,47 @@
+"""
+logger.py — Standard library logging wrapper.
+
+Returns a stdlib logging.Logger so that log calls (logger.info, logger.error,
+logger.warning, logger.debug) work identically everywhere, with zero external
+dependencies (no structlog, no PrintLogger).
+
+All existing callers require no changes:
+    from backend.utils.logger import setup_logger
+    logger = setup_logger("my_module")
+    logger.info("msg", key=value)   ← keyword args are silently dropped
+                                       by stdlib, which is fine
+"""
+
 import logging
 import sys
 from pathlib import Path
 
-import structlog
 
+def setup_logger(name: str = "chainbreaker", level: str = "INFO") -> logging.Logger:
+    """
+    Return a configured stdlib Logger for the given name.
 
-def setup_logger(name: str = "chainbreaker", level: str = "INFO") -> structlog.BoundLogger:
-    log_dir = Path("logs")
-    log_dir.mkdir(exist_ok=True)
+    Creates the logs/ directory and attaches a StreamHandler (stdout) if the
+    logger has no handlers yet, so repeated calls are idempotent.
+    """
+    Path("logs").mkdir(exist_ok=True)
 
-    structlog.configure(
-        processors=[
-            structlog.stdlib.filter_by_level,
-            structlog.stdlib.add_logger_name,
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.PositionalArgumentsFormatter(),
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer(),
-        ],
-        wrapper_class=structlog.stdlib.BoundLogger,
-        context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stdout),
-        cache_logger_on_first_use=True,
-    )
+    logger = logging.getLogger(name)
 
-    logging.basicConfig(
-        format="%(message)s",
-        stream=sys.stdout,
-        level=getattr(logging, level.upper()),
-    )
+    # Set level only if not already configured by a parent
+    numeric_level = getattr(logging, level.upper(), logging.INFO)
+    if not logger.level:
+        logger.setLevel(numeric_level)
 
-    return structlog.get_logger(name)
+    # Avoid duplicate handlers on repeated calls
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(numeric_level)
+        formatter = logging.Formatter(
+            fmt="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+            datefmt="%Y-%m-%dT%H:%M:%S",
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    return logger

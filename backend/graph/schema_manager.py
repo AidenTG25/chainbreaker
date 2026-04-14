@@ -46,6 +46,9 @@ class SchemaManager:
             "agent_action_constraints": "SHOW CONSTRAINTS WHERE entity = 'AgentAction'",
             "alert_constraints": "SHOW CONSTRAINTS WHERE entity = 'Alert'",
             "asset_constraints": "SHOW CONSTRAINTS WHERE entity = 'Asset'",
+            "flow_constraints": "SHOW CONSTRAINTS WHERE entity = 'Flow'",
+            "protocol_constraints": "SHOW CONSTRAINTS WHERE entity = 'Protocol'",
+            "attack_constraints": "SHOW CONSTRAINTS WHERE entity = 'Attack'",
         }
 
         for name, query in queries.items():
