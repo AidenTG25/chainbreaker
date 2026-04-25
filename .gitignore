@@ -85,3 +85,8 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
+
+# Local Dev Workspace
+dev/*
+!dev/.gitkeep
+!dev/README.md

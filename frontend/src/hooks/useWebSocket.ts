@@ -1,41 +1,95 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
-type MessageHandler = (data: unknown) => void;
+// Defines the structure of the incoming flow events from the Neo4j backend
+export interface NodeEvent {
+  id: string; // IP
+  label: string;
+  risk_score: number; // 0 to 100
+  status: 'benign' | 'suspicious' | 'attack';
+}
 
-export function useWebSocket(url: string, onMessage: MessageHandler) {
+export interface EdgeEvent {
+  source: string; // IP
+  target: string; // IP
+  suspicious: boolean;
+  metadata?: Record<string, any>;
+}
+
+export interface WsMessage {
+  type: 'INIT' | 'UPDATE';
+  nodes: NodeEvent[];
+  edges: EdgeEvent[];
+}
+
+export function useWebSocket(url: string) {
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastMessage, setLastMessage] = useState<WsMessage | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const reconnectTimeoutRef = useRef<number | null>(null);
 
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
     try {
-      wsRef.current = new WebSocket(url);
-      wsRef.current.onopen = () => console.log('WS connected');
-      wsRef.current.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          onMessage(data);
-        } catch {
-          onMessage(event.data);
+      const ws = new WebSocket(url);
+      
+      ws.onopen = () => {
+        setIsConnected(true);
+        console.log('[WebSocket] Connected to', url);
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
         }
       };
-      wsRef.current.onclose = () => {
-        reconnectTimeoutRef.current = setTimeout(connect, 5000);
+
+      ws.onmessage = (event) => {
+        try {
+          const data: WsMessage = JSON.parse(event.data);
+          setLastMessage(data);
+        } catch (e) {
+          console.error('[WebSocket] Failed to parse message', e);
+        }
       };
-      wsRef.current.onerror = () => {
-        wsRef.current?.close();
+
+      ws.onclose = () => {
+        setIsConnected(false);
+        console.log('[WebSocket] Disconnected from', url);
+        // Exponential backoff or simple retry
+        if (!reconnectTimeoutRef.current) {
+          reconnectTimeoutRef.current = setTimeout(connect, 5000) as unknown as number;
+        }
       };
-    } catch {
-      reconnectTimeoutRef.current = setTimeout(connect, 5000);
+
+      ws.onerror = (error) => {
+        console.error('[WebSocket] Error:', error);
+        ws.close();
+      };
+
+      wsRef.current = ws;
+    } catch (e) {
+      console.error('[WebSocket] Failed to connect', e);
+      if (!reconnectTimeoutRef.current) {
+        reconnectTimeoutRef.current = setTimeout(connect, 5000) as unknown as number;
+      }
     }
-  }, [url, onMessage]);
+  }, [url]);
 
   useEffect(() => {
+    connect();
     return () => {
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-      wsRef.current?.close();
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
     };
+  }, [connect]);
+
+  // Expose a method to manually send data if necessary
+  const sendMessage = useCallback((msg: any) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(msg));
+    }
   }, []);
 
-  return { connect };
+  return { isConnected, lastMessage, sendMessage };
 }

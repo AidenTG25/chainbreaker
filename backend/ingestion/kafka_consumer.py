@@ -1,10 +1,11 @@
 """
-kafka_consumer.py — Kafka → Parser → Neo4j flow graph ingestion.
+kafka_consumer.py — Kafka → Parser → ML inference → Neo4j flow graph ingestion.
 
 Pipeline:
     Kafka "network-events"
         → json.loads (raw CSV row dict)
         → parse_network_flow_row (normalise keys, validate IPs)
+        → NIDSPredictor.predict_batch (XGBoost + IsoForest)
         → ingest_flow_batch (UNWIND Cypher → Neo4j)
         → consumer.commit()
 """
@@ -18,6 +19,7 @@ from confluent_kafka import Consumer, KafkaError
 from backend.graph.flow_writer import ingest_flow_batch
 from backend.graph.neo4j_client import neo4j_client
 from backend.ingestion.cicflow_parser import parse_network_flow_row
+from backend.ml.inference import NIDSPredictor
 
 
 KAFKA_CONFIG = {
@@ -35,6 +37,10 @@ MAX_WAIT_SECONDS = 5.0   # flush partial batch after this many idle seconds
 async def main():
     neo4j_client.connect()
     print("[consumer] Neo4j connected")
+
+    # Load ML models once at startup (expensive — do NOT load per-message)
+    predictor = NIDSPredictor()
+    print("[consumer] ML predictor loaded")
 
     consumer = Consumer(KAFKA_CONFIG)
     consumer.subscribe([TOPIC])
@@ -88,14 +94,25 @@ async def main():
 
             # ── Flush batch ────────────────────────────────────────────────
             if len(batch) >= BATCH_SIZE:
+                # ML inference — vectorised over the whole batch
+                ml_results = predictor.predict_batch(batch)
+                for flow, ml in zip(batch, ml_results):
+                    flow["predicted_label"]  = ml["attack_type"]
+                    flow["confidence_score"] = ml["confidence"]
+                    flow["anomaly_score"]    = ml["anomaly_score"]
+                    flow["final_label"]      = ml["final_label"]
+
                 count = await ingest_flow_batch(batch)
                 total_inserted += count
                 consumer.commit()
 
                 elapsed = time.monotonic() - start
                 rate = total_inserted / max(elapsed, 0.001)
+                attacks = sum(1 for r in ml_results if r["final_label"] == "ATTACK")
+                suspicious = sum(1 for r in ml_results if r["final_label"] == "SUSPICIOUS")
                 print(f"[consumer] total_inserted={total_inserted} "
                       f"rejected={total_rejected} "
+                      f"attacks={attacks} suspicious={suspicious} "
                       f"rate={rate:.0f} flows/s")
 
                 batch.clear()
@@ -105,9 +122,15 @@ async def main():
         print("\n[consumer] Stopping...")
 
     finally:
-        # Flush remaining
+        # Flush remaining batch with ML inference
         if batch:
             print(f"[consumer] Flushing remaining {len(batch)} flows...")
+            ml_results = predictor.predict_batch(batch)
+            for flow, ml in zip(batch, ml_results):
+                flow["predicted_label"]  = ml["attack_type"]
+                flow["confidence_score"] = ml["confidence"]
+                flow["anomaly_score"]    = ml["anomaly_score"]
+                flow["final_label"]      = ml["final_label"]
             count = await ingest_flow_batch(batch)
             total_inserted += count
             consumer.commit()
